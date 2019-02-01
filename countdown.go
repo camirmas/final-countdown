@@ -3,36 +3,6 @@ The countdown package provides a simple service for managing countdown timers.
 */
 package countdown
 
-// The timer can be expressed as a channel of Messages. The client will read from
-// this channel to get updated time, and will send messages to it.
-type Timer struct {
-	// A unique identifier
-	Id int
-	// How long it should run
-	Duration int
-	// Time remaining (last stored)
-	TimeRemaining int
-	// Channel containing times remaining
-	Channel chan int
-	// Channel for communicating timer completion to parent service
-	service chan int
-	// Handles stored timers
-	store Store
-}
-
-// Start runs the Timer
-func (t *Timer) Start() {
-	t.store.Add(t)
-	// TODO: run countdown, pass time-remaining values to channel
-}
-
-// Stop cancels the Timer and deletes it
-func (t *Timer) Stop() {
-	t.store.Remove(t.Id)
-	t.service <- t.Id
-	close(t.Channel)
-}
-
 // The primary entry point for this library. It is responsible for maintaining
 // the Timers and interacting with the client.
 type Service struct {
@@ -83,56 +53,4 @@ func (s *Service) manageTimers() {
 	for id := range s.channel {
 		s.store.Remove(id)
 	}
-}
-
-// General interface for storing Timer info. This allows for multiple backend
-// implementations.
-type Store interface {
-	// List returns all timers
-	List() []*Timer
-	// Add adds a new Timer to the store
-	Add(timer *Timer) error
-	// Get gets a timer by id
-	Get(id int) (*Timer, bool)
-	// Update updates an existing Timer
-	Update(timer *Timer) error
-	// Remove removes a Timer from the store
-	Remove(id int) error
-}
-
-// Default to simple map for storage.
-type timerStore map[int]*Timer
-
-func (ts timerStore) List() []*Timer {
-	var timers []*Timer
-
-	for _, v := range ts {
-		timers = append(timers, v)
-	}
-
-	return timers
-}
-
-func (ts timerStore) Add(timer *Timer) error {
-	ts[timer.Id] = timer
-
-	return nil
-}
-
-func (ts timerStore) Get(id int) (*Timer, bool) {
-	timer, ok := ts[id]
-
-	return timer, ok
-}
-
-func (ts timerStore) Update(timer *Timer) error {
-	ts[timer.Id] = timer
-
-	return nil
-}
-
-func (ts timerStore) Remove(id int) error {
-	delete(ts, id)
-
-	return nil
 }
