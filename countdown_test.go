@@ -1,10 +1,9 @@
 package countdown
 
 import (
+	"fmt"
 	"github.com/boltdb/bolt"
 	"testing"
-	// "bytes"
-	// "os"
 )
 
 func TestService(t *testing.T) {
@@ -22,7 +21,8 @@ func boltDBService(t *testing.T) {
 
 func runTests(s Service, t *testing.T) {
 	id := 1
-	timer, err := s.StartTimer(id, 10)
+	duration := 3
+	timer, err := s.StartTimer(id, duration)
 
 	if err != nil {
 		t.Fatal(err)
@@ -31,17 +31,35 @@ func runTests(s Service, t *testing.T) {
 	if timer.Id != id {
 		t.Fatalf("Expected Id to be %d, got %d", id, timer.Id)
 	}
-	if timer.Duration != 10 {
-		t.Fatalf("Expected Duration to be 10, got %d", timer.Duration)
+	if timer.Duration != duration {
+		t.Fatalf("Expected Duration to be %d, got %d", duration, timer.Duration)
 	}
-	if timer.TimeRemaining != 10 {
-		t.Fatalf("Expected TimeRemaining to be 10, got %d", timer.TimeRemaining)
+	if timer.TimeRemaining != duration {
+		t.Fatalf("Expected TimeRemaining to be %d, got %d", duration, timer.TimeRemaining)
 	}
 
-	s.StopTimer(id)
+	if _, err := s.StartTimer(id, duration); err == nil {
+		expectErr(TimerExistsError{}, t)
+	}
 
+	// Collect times remaining
+	expected := [3]int{3, 2, 1}
+	timesRemaining := make([]int, 0)
+	for tr := range timer.Read() {
+		fmt.Println(tr)
+		timesRemaining = append(timesRemaining, tr)
+	}
+
+	// Make sure values are the same
+	for i, v := range expected {
+		if v != timesRemaining[i] {
+			t.Fatalf("Expected %v, got %v", expected, timesRemaining)
+		}
+	}
+
+	// Make sure Timer got removed by Service after completion
 	if _, err := s.GetTimer(id); err == nil {
-		t.Fatalf("Expected error: %s", TimerNotFoundError{}.Error())
+		expectErr(TimerNotFoundError{}, t)
 	}
 }
 
@@ -55,4 +73,8 @@ func teardown(s Service, t *testing.T) {
 
 		return nil
 	})
+}
+
+func expectErr(err error, t *testing.T) {
+	t.Fatalf("Expected error: %s", err.Error())
 }

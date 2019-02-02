@@ -44,6 +44,9 @@ func (db BoltStore) ListTimers() []*Timer {
 }
 
 func (db BoltStore) AddTimer(t *Timer) error {
+	if _, err := db.GetTimer(t.Id); err == nil {
+		return TimerExistsError{}
+	}
 	if err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("timers"))
 		tSer, err := t.serialize()

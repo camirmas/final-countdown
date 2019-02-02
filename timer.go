@@ -2,6 +2,7 @@ package countdown
 
 import (
 	"encoding/json"
+	"time"
 )
 
 // The timer can be expressed as a channel of Messages. The client will read from
@@ -23,8 +24,12 @@ type Timer struct {
 
 // Start runs the Timer
 func (t *Timer) Start() error {
-	return t.store.AddTimer(t)
-	// TODO: run countdown, pass time-remaining values to channel
+	if err := t.store.AddTimer(t); err != nil {
+		return err
+	}
+	go t.countdown()
+
+	return nil
 }
 
 // Stop ends the Timer
@@ -48,6 +53,15 @@ func (t *Timer) serialize() ([]byte, error) {
 
 func (t *Timer) deserialize(b []byte) error {
 	return json.Unmarshal(b, t)
+}
+
+func (t *Timer) countdown() {
+	for t.TimeRemaining > 0 {
+		t.channel <- t.TimeRemaining
+		t.TimeRemaining--
+		time.Sleep(1 * time.Second)
+	}
+	t.complete()
 }
 
 func (t *Timer) complete() {
