@@ -108,7 +108,7 @@ func (db BoltStore) RemoveTimer(id int) error {
 	return nil
 }
 
-func connectBoltStore(filepath string) (*BoltStore, error) {
+func ConnectBoltStore(filepath string) (*BoltStore, error) {
 	if filepath == "" {
 		filepath = "countdown.db"
 	}
