@@ -1,15 +1,35 @@
 package countdown
 
-import "testing"
+import (
+	"github.com/boltdb/bolt"
+	"testing"
+	// "bytes"
+	// "os"
+)
 
 func TestService(t *testing.T) {
+	t.Run("with Bolt DB", boltDBService)
+}
+
+func boltDBService(t *testing.T) {
 	s := Service{}
-	s.Start(nil)
+	if err := s.Start(nil, true); err != nil {
+		t.Fatal(err)
+	}
+	runTests(s, t)
+	teardown(s, t)
+}
 
-	timer := s.StartTimer(1, 10)
+func runTests(s Service, t *testing.T) {
+	id := 1
+	timer, err := s.StartTimer(id, 10)
 
-	if timer.Id != 1 {
-		t.Fatalf("Expected Id to be 1, got %d", timer.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if timer.Id != id {
+		t.Fatalf("Expected Id to be %d, got %d", id, timer.Id)
 	}
 	if timer.Duration != 10 {
 		t.Fatalf("Expected Duration to be 10, got %d", timer.Duration)
@@ -18,17 +38,21 @@ func TestService(t *testing.T) {
 		t.Fatalf("Expected TimeRemaining to be 10, got %d", timer.TimeRemaining)
 	}
 
-	if _, ok := s.store.Get(1); !ok {
-		t.Fatal("Expected Timer")
-	}
+	s.StopTimer(id)
 
-	err := s.StopTimer(1)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, ok := s.store.Get(1); ok {
+	if _, err := s.GetTimer(id); err == nil {
 		t.Fatalf("Expected error: %s", TimerNotFoundError{}.Error())
 	}
+}
+
+func teardown(s Service, t *testing.T) {
+	s.store.(BoltStore).Update(func(tx *bolt.Tx) error {
+		err := tx.DeleteBucket([]byte("timers"))
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		return nil
+	})
 }
